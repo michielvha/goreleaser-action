@@ -1,16 +1,9 @@
 project_name: example-project
 version: 2
 
-# Visit https://goreleaser.com for documentation on how to customize this
-# behavior.
-#before:
-#  hooks:
-#    - go mod tidy
+# Visit https://goreleaser.com for documentation on how to customize this behaviour
 builds:
   - env:
-      # goreleaser does not work with CGO, it could also complicate
-      # usage by users in CI/CD systems like Terraform Cloud where
-      # they are unable to install libraries.
       - CGO_ENABLED=0
     mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
@@ -18,20 +11,14 @@ builds:
     ldflags:
       - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}'
     goos:
-      # - freebsd
       - windows
       - linux
-      # - darwin
+      - darwin
     goarch:
       - amd64
-      # - "386"
-      # - arm
-      # - arm64
-    ignore:
-      - goos: darwin
-        goarch: "386"
+      - arm64
     no_unique_dist_dir: true
-    binary: '{{ .ProjectName }}' # _v{{ .Version }} # DONE: Decide if we want to keep the _v there instead of just _, pipeline needs to be adjusted if changed
+    binary: '{{ .ProjectName }}'
 snapshot:
   version_template: '{{ incpatch .Version }}'
 archives:
@@ -43,9 +30,7 @@ checksum:
 signs:
   - artifacts: checksum
     args:
-      # if you are using this is a GitHub action or some other automated pipeline, you
-      # need to pass the batch flag to indicate it's not interactive.
-      - "--batch"
+      - "--batch" # pass the batch flag to indicate it's not interactive.
       - "--local-user"
       - "{{ .Env.GPG_FINGERPRINT }}" # set this environment variable for your signing key
       - "--output"
@@ -58,7 +43,7 @@ changelog:
   filters:
     include:
       - main
-  sort: asc # Sort commits chronologically (oldest to newest)
-
+  sort: asc # Sort commits chronologically
+  
 # To check deprecations:
 # https://goreleaser.com/deprecations/
