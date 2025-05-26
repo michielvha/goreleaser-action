@@ -1,0 +1,83 @@
+name: 'Go Build and Release'
+description: 'Build and release a Go project with GoReleaser'
+inputs:
+  go-version:
+    description: 'The Go version to use'
+    required: false
+    default: '1.24.3'
+  gitversion-config-path:
+    description: 'Path to GitVersion configuration file'
+    required: false
+    default: 'gitversion.yml'
+  github-token:
+    description: 'GitHub token for release'
+    required: true
+  pgp-private-key:
+    description: 'PGP private key for signing'
+    required: true
+  goreleaser-version:
+    description: 'GoReleaser version to use'
+    required: false
+    default: '~> v2'
+  goreleaser-args:
+    description: 'Arguments to pass to GoReleaser'
+    required: false
+    default: 'release --clean'
+
+runs:
+  using: "composite"
+  steps:
+    # 1: Set up Go
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+
+    # 2: Install Linter (golangci-lint)
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v7
+
+    # 3: Cache GoReleaser installation
+    - name: Cache GoReleaser
+      id: goreleaser-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.goreleaser
+        key: goreleaser-${{ runner.os }}-latest
+        restore-keys: goreleaser-${{ runner.os }}-
+
+    # 4: Import PGP Key for signing
+    - name: Import PGP Private Key
+      shell: bash
+      run: |
+        mkdir -p ~/.gnupg
+        chmod 700 ~/.gnupg
+        echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+        gpgconf --reload gpg-agent
+        echo "${{ inputs.pgp-private-key }}" | gpg --batch --import
+        gpg --list-secret-keys --keyid-format=long
+      env:
+        GPG_TTY: /dev/null
+
+    # 5: Extract PGP Fingerprint
+    - name: Extract and Set GPG Fingerprint
+      shell: bash
+      run: |
+        echo "🔹 Extracting GPG Fingerprint..."
+        export GPG_FINGERPRINT=$(gpg --list-secret-keys --keyid-format=long | grep sec | awk '{print $2}' | awk -F'/' '{print $2}')
+        echo "GPG_FINGERPRINT=${GPG_FINGERPRINT}" >> $GITHUB_ENV
+        echo "Using fingerprint: $GPG_FINGERPRINT"
+
+    # 6: Run GoReleaser to build and release binaries
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        version: ${{ inputs.goreleaser-version }}
+        args: ${{ inputs.goreleaser-args }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GPG_FINGERPRINT: ${{ env.GPG_FINGERPRINT }}
+
+branding:
+  icon: 'package'
+  color: 'blue'
