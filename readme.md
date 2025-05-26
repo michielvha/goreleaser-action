@@ -6,7 +6,6 @@ This GitHub Action builds and releases a Go application using GitVersion for ver
 
 ## Features
 
-- Automatic versioning with GitVersion
 - Go code linting with golangci-lint
 - Binary signing with PGP
 - Multi-platform binary building and releasing with GoReleaser
