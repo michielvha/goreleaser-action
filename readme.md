@@ -10,6 +10,9 @@ This GitHub Action builds and releases a Go application using GitVersion for ver
 
 ## Usage
 
+> [!IMPORTANT]
+> You must tag the repository with an initial tag (0.0.1) when using our gitversion file, otherwise the pipeline will fail.
+
 Add this to your workflow file:
 
 ```yaml
