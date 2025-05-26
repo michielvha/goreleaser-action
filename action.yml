@@ -41,7 +41,7 @@ runs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v7
       with:
-        config-file: ${{ inputs.golangci-lint-config }}
+        args: --config=${{ inputs.golangci-lint-config }}
 
     # 3: Cache GoReleaser installation
     - name: Cache GoReleaser

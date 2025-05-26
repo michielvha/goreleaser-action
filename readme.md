@@ -11,7 +11,7 @@ This GitHub Action builds and releases a Go application using GitVersion for ver
 ## Usage
 
 > [!IMPORTANT]
-> You must tag the repository with an initial tag (0.0.1) when using our gitversion file, otherwise the pipeline will fail.
+> You must tag the repository with an initial tag (v0.0.0) when using our gitversion file, otherwise the pipeline will fail.
 
 Add this to your workflow file:
 
@@ -52,7 +52,7 @@ jobs:
 | `gitversion-config-path` | Path to GitVersion configuration file | No       | `gitversion.yml`  |
 | `goreleaser-version`     | GoReleaser version to use             | No       | `~> v2`           |
 | `goreleaser-args`        | Arguments to pass to GoReleaser       | No       | `release --clean` |
-| `golangci-lint-config`   | Path to golangci-lint config file     | No       | `.golangci.yml`   |
+| `golangci-lint-config`   | Path to golangci-lint config file (passed as --config argument)     | No       | `.golangci.yml`   |
 
 ## Requirements
 
@@ -62,8 +62,6 @@ jobs:
 - Your project must have a valid GoReleaser configuration file (.goreleaser.yml or .goreleaser.yaml)
 - PGP key for signing releases must be set as a repository secret
 - Optional: A `.golangci.yml` file for custom linting configuration (if not provided, golangci-lint will use its default settings)
-  - If you specify a custom path for the golangci-lint config using the `golangci-lint-config` parameter (different from the default `.golangci.yml`) and the file doesn't exist, the action will fail. If you don't specify it, default behaviour is applied as fallback.
-
 ### 🧩 Secrets
 
 | Name                      | Purpose                             |
