@@ -79,33 +79,33 @@ jobs:
 You can run the following on any unix host to quickly create a key
 
 1. Create config file
-   ```sh
-   cat > gen-key.conf <<EOF
-   %no-protection
-   Key-Type: RSA
-   Key-Length: 2048
-   Name-Real: Test User
-   Name-Email: test@example.com
-   Expire-Date: 0
-   %commit
-   EOF
-   ```
+```sh
+cat > gen-key.conf <<EOF
+%no-protection
+Key-Type: RSA
+Key-Length: 2048
+Name-Real: Test User
+Name-Email: test@example.com
+Expire-Date: 0
+%commit
+EOF
+```
 2. Generate the key
-   ```sh
-   gpg --batch --gen-key gen-key.conf
-   ```
+```sh
+gpg --batch --gen-key gen-key.conf
+```
 3. List the key fingerprint (optional)
-   ```sh
-   gpg --list-secret-keys --keyid-format=long
-   ```
+```sh
+gpg --list-secret-keys --keyid-format=long
+```
 4. Export the key and manually copy the value to repo secret.
-   ```sh
-   gpg --armor --export-secret-keys test@example.comm
-   ```
+```sh
+gpg --armor --export-secret-keys test@example.com
+```
 5. Clean up
-   ```sh
-   rm gen-key.conf
-   ```
+```sh
+rm gen-key.conf
+```
 
 ## 🧪 Action Overview
 
