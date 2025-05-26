@@ -1,0 +1,36 @@
+# https://gitversion.net/docs/reference/configuration
+# manually verify with `gitversion (/showconfig)`
+workflow: GitHubFlow/v1
+
+# Custom strategies - this differs from default
+strategies:
+- MergeMessage
+- TaggedCommit
+- TrackReleaseBranches   # this ensures that commits from release branches are tracked and included in the versioning process.
+- VersionInBranchName
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    prevent-increment:
+      of-merged-branch: true
+    track-merge-target: false
+    track-merge-message: true # ensures that merge commit messages are included.
+    is-main-branch: true
+    mode: ContinuousDeployment # This mode avoids adding suffixes to the version, ensuring a clean versioning process.
+  release:
+    # Custom release branch configuration
+    regex: ^release/(?<BranchName>[0-9]+\.[0-9]+\.[0-9]+)$
+    label: ''
+    increment: None
+    prevent-increment:
+      when-current-commit-tagged: true
+      of-merged-branch: true
+    is-release-branch: true
+    mode: ContinuousDeployment # do not use ContinuousDelivery, else it will increment the version with a suffix on each commit.
+    source-branches:
+    - main
+
+# Only including assembly-versioning-scheme since it's a common setting people want explicit
+assembly-versioning-scheme: MajorMinorPatch
