@@ -4,7 +4,7 @@ inputs:
   go-version:
     description: 'The Go version to use'
     required: false
-    default: '1.24.3'
+    default: '1.25.2'
   gitversion-config-path:
     description: 'Path to GitVersion configuration file'
     required: false
