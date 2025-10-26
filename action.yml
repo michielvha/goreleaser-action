@@ -39,7 +39,7 @@ runs:
 
     # 2: Install Linter (golangci-lint)
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v7
+      uses: golangci/golangci-lint-action@v8
       with:
         args: --config=${{ inputs.golangci-lint-config }}
 
