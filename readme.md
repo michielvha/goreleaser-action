@@ -33,7 +33,7 @@ jobs:
       - name: Build and Release
         uses: ./.github/actions/build-release-action
         with:
-          github-token: ${{ secrets.EDGECTL_GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           pgp-private-key: ${{ secrets.PGP_PRIVATE_KEY }}
           # Optional overrides:
           # go-version: '1.24.3'
@@ -67,7 +67,7 @@ jobs:
 | Name                      | Purpose                             |
 | ------------------------- | ----------------------------------- |
 | `PGP_PRIVATE_KEY`         | Used to sign the checksums          |
-| `$(PROJECT)_GITHUB_TOKEN` | Custom token with extra permissions |
+| `${{ github.token }}` or `$(PROJECT)_GITHUB_TOKEN` | Default for normal release with `contents: write` or Custom token with extra permissions provided via secrets if needed|
 
 > [!IMPORTANT]
 > You need to manually create a token  with `repo` and `workflow` permissions and generate a PGP Private Key, afterwards add these values to repo secrets
