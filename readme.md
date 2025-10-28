@@ -1,3 +1,87 @@
+<!-- TODO: Properly test statements like which config files are required and which will default, I think golanci is needed and gorelease isn't 
+test the whole setup better so we can give better explenations in this readme when it comes to the token required, optionally pushing to brew tap etc etc.
+
+Create a second version that also uses goreleaser for deploying the container to ghcr, get inspiration here :
+
+project_name: crossplane-docs
+
+builds:
+  - id: crossplane-docs
+    binary: crossplane-docs
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+dockers:
+  - image_templates: ["ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-amd64"]
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/amd64
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://github.com/kavinraja-g/{{ .ProjectName }}
+      - --label=org.opencontainers.image.source=https://github.com/kavinraja-g/{{ .ProjectName }}
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=Apache
+  - image_templates: ["ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+    goarch: arm64
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/arm64/v8
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://github.com/kavinraja-g/{{ .ProjectName }}
+      - --label=org.opencontainers.image.source=https://github.com/kavinraja-g/{{ .ProjectName }}
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=Apache
+
+docker_manifests:
+  - name_template: ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}
+    image_templates:
+      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-amd64
+      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-arm64v8
+  - name_template: ghcr.io/kavinraja-g/{{ .ProjectName }}:latest
+    image_templates:
+      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-amd64
+      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-arm64v8
+
+archives:
+  - builds:
+      - crossplane-docs
+    name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    wrap_in_directory: false
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+brews:
+  - name: crossplane-docs
+    homepage: "https://github.com/Kavinraja-G/crossplane-docs/"
+    description: "XDocs generator for Crossplane"
+    repository:
+      owner: Kavinraja-G
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
+-->
+
 # Go Build and Release Action
 
 This GitHub Action builds and releases a Go application using GitVersion for versioning and GoReleaser for building and publishing releases.
@@ -59,8 +143,8 @@ jobs:
 ### Config files
 
 - Your project must have a valid Golang configuration file
-- Your project must have a valid GoReleaser configuration file (.goreleaser.yml or .goreleaser.yaml)
 - PGP key for signing releases must be set as a repository secret
+- Optional: a valid GoReleaser configuration file (.goreleaser.yml or .goreleaser.yaml) if omitted, gorelease will run using it's default configuration.
 - Optional: A `.golangci.yml` file for custom linting configuration (if not provided, golangci-lint will use its default settings)
 ### 🧩 Secrets
 
