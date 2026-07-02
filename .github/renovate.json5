@@ -1,0 +1,64 @@
+{
+  // Renovate (Mend-hosted app) config for goreleaser-action.
+  //
+  // This action is consumed by nearly every one of my Go app repos, so its own
+  // supply chain is critical: all four `uses:` steps in action.yml (setup-go,
+  // golangci-lint-action, cache, goreleaser-action) are SHA-pinned (`@<digest> # vX.Y.Z`)
+  // rather than tracking mutable major tags. Renovate maintains those digests here
+  // (`pinDigests`) and keeps the human-readable tag as a trailing comment. It also
+  // tracks the default Go toolchain via the `# renovate:` comment on `go-version`.
+  // Nothing is auto-merged: every bump is a reviewable PR, and everything detected
+  // (incl. rate-limited / major updates) surfaces on the Dependency Dashboard.
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':dependencyDashboard',
+    ':semanticCommits',
+    ':timezone(Europe/Brussels)',
+  ],
+  dependencyDashboard: true,
+  semanticCommitType: 'chore',
+  labels: ['dependencies'],
+  prHourlyLimit: 0,
+  prConcurrentLimit: 5,
+  customManagers: [
+    {
+      // action.yml pins the default Go version via an input `default:`, which no
+      // stock manager can see. This `# renovate:` comment names the datasource so
+      // Renovate keeps the Go toolchain current (golang-version). The regex is
+      // generic: it matches the comment followed by the next `key: 'value'` line.
+      customType: 'regex',
+      managerFilePatterns: ['/(^|/)action\\.ya?ml$/'],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+[A-Za-z0-9_-]+:\\s*[\'"]?(?<currentValue>[^\'"\\s]+)',
+      ],
+    },
+  ],
+  packageRules: [
+    {
+      // Pin every GitHub Action to a digest and keep the version tag as a comment.
+      matchManagers: ['github-actions'],
+      pinDigests: true,
+    },
+    {
+      // Group non-major action bumps (digest re-pins + patch/minor) into one PR.
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['digest', 'pin', 'minor', 'patch'],
+      groupName: 'github-actions non-major',
+    },
+    {
+      // Surface every major individually and label it — each (e.g. goreleaser v7 -> v8)
+      // needs its own review, not a silent batch.
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['major'],
+      addLabels: ['major-upgrade'],
+    },
+    {
+      // Isolate the Go toolchain bump: a minor (e.g. 1.25 -> 1.26) changes what
+      // consumers build with, so it gets its own labeled PR rather than a group.
+      matchDatasources: ['golang-version'],
+      matchUpdateTypes: ['major', 'minor'],
+      addLabels: ['go-toolchain'],
+    },
+  ],
+}

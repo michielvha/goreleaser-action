@@ -4,7 +4,8 @@ inputs:
   go-version:
     description: 'The Go version to use'
     required: false
-    default: '1.25.3'
+    # renovate: datasource=golang-version depName=go
+    default: '1.25.11'
   gitversion-config-path:
     description: 'Path to GitVersion configuration file'
     required: false
@@ -33,13 +34,14 @@ runs:
   steps:
     # 1: Set up Go
     - name: Set up Go
-      uses: actions/setup-go@v6
+      # SHA-pinned for supply-chain safety; Renovate maintains the digest + tag comment.
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
       with:
         go-version: ${{ inputs.go-version }}
 
     # 2: Install Linter (golangci-lint)
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v8
+      uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
       continue-on-error: true
       with:
         args: --config=${{ inputs.golangci-lint-config }}
@@ -47,7 +49,7 @@ runs:
     # 3: Cache GoReleaser installation
     - name: Cache GoReleaser
       id: goreleaser-cache
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.goreleaser
         key: goreleaser-${{ runner.os }}-latest
@@ -77,7 +79,7 @@ runs:
 
     # 6: Run GoReleaser to build and release binaries
     - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v6
+      uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
       with:
         version: ${{ inputs.goreleaser-version }}
         args: ${{ inputs.goreleaser-args }}
