@@ -5,7 +5,7 @@ inputs:
     description: 'The Go version to use'
     required: false
     # renovate: datasource=golang-version depName=go
-    default: '1.25.11'
+    default: '1.26.5'
   gitversion-config-path:
     description: 'Path to GitVersion configuration file'
     required: false
