@@ -22,11 +22,6 @@ inputs:
     required: false
     default: 'release --clean'
 
-outputs:
-  cache-hit:
-    description: Whether the exact-version GoReleaser binary was restored
-    value: ${{ steps.binary.outputs.cache-hit }}
-
 runs:
   using: "composite"
   steps:
@@ -34,47 +29,7 @@ runs:
       uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
       with:
         go-version: ${{ inputs.go-version }}
-
-    - name: Select binary cache policy
-      id: version
-      shell: bash
-      env:
-        ACTION_PATH: ${{ github.action_path }}
-        REQUESTED_VERSION: ${{ inputs.goreleaser-version }}
-      run: bash "$ACTION_PATH/scripts/goreleaser.sh" prepare
-
-    - name: Restore GoReleaser binary
-      id: cache
-      if: steps.version.outputs.cacheable == 'true'
-      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ${{ runner.temp }}/goreleaser-bin
-        key: goreleaser-bin-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.goreleaser-version }}
-
-    - name: Install GoReleaser on cache miss
-      if: steps.cache.outputs.cache-hit != 'true'
-      uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
-      with:
-        version: ${{ inputs.goreleaser-version }}
-        install-only: true
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-
-    - name: Prepare executable
-      id: binary
-      shell: bash
-      env:
-        ACTION_PATH: ${{ github.action_path }}
-        CACHE_DIRECTORY: ${{ runner.temp }}/goreleaser-bin
-        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
-      run: bash "$ACTION_PATH/scripts/goreleaser.sh" stage
-
-    - name: Save installed GoReleaser binary
-      if: steps.version.outputs.cacheable == 'true' && steps.cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ${{ runner.temp }}/goreleaser-bin
-        key: goreleaser-bin-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.goreleaser-version }}
+        cache: true
 
     - name: Import signing key
       id: gpg
@@ -85,16 +40,15 @@ runs:
       run: bash "$ACTION_PATH/scripts/signing-key.sh" import
 
     - name: Run GoReleaser
-      shell: bash
+      uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+      with:
+        version: ${{ inputs.goreleaser-version }}
+        args: ${{ inputs.goreleaser-args }}
       env:
-        ACTION_PATH: ${{ github.action_path }}
-        CACHE_DIRECTORY: ${{ runner.temp }}/goreleaser-bin
-        GORELEASER_ARGS: ${{ inputs.goreleaser-args }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GNUPGHOME: ${{ steps.gpg.outputs.gnupghome }}
         GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
         GPG_TTY: /dev/null
-      run: bash "$ACTION_PATH/scripts/goreleaser.sh" run
 
     - name: Remove imported signing key
       if: ${{ always() && steps.gpg.outputs.gnupghome != '' }}

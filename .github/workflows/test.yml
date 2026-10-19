@@ -15,11 +15,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          bun-version: 1.4.3
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
       - run: shellcheck scripts/*.sh
-      - run: bun test
+      - run: go test ./...
 
   snapshot:
     needs: behavior
@@ -30,10 +31,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          bun-version: 1.4.3
-      - name: An invalid key must fail after tool installation
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: An invalid signing key must fail
         id: invalid-key
         continue-on-error: true
         uses: ./
@@ -48,8 +50,8 @@ jobs:
         run: test "$OUTCOME" = failure
       - name: Generate an ephemeral signing key
         id: key
-        run: bun tests/create-signing-fixture.js
-      - name: Build and sign a snapshot with the cached binary
+        run: go run ./tests/create-signing-fixture
+      - name: Build and sign a snapshot
         id: snapshot
         uses: ./
         with:
@@ -57,10 +59,6 @@ jobs:
           github-token: ${{ github.token }}
           pgp-private-key: ${{ steps.key.outputs.private-key }}
           goreleaser-args: release --snapshot --clean --skip=publish --config tests/fixture/.goreleaser.yml
-      - name: Check that the failed attempt preserved the binary cache
-        env:
-          CACHE_HIT: ${{ steps.snapshot.outputs.cache-hit }}
-        run: test "$CACHE_HIT" = true
       - name: Verify the checksum signature and private-key cleanup
         run: |
           gpg --batch --dearmor --output "$RUNNER_TEMP/release-fixture-public.gpg" "$RUNNER_TEMP/release-fixture-public.asc"

@@ -4,8 +4,8 @@ Build, sign, and publish Go artifacts with GoReleaser. This branch prepares the
 release-only next major. Existing `main` and released consumer refs are not
 changed by this branch.
 
-The action provisions Go, caches the GoReleaser binary, imports the signing key
-with native GnuPG, and runs GoReleaser. It does not lint, test, decide
+The action provisions Go, imports the signing key with native GnuPG, and calls
+the upstream GoReleaser action to install and run GoReleaser. It does not lint, test, decide
 versions, or create source tags. Use `michielvha/go-ci-action` for CI and call
 `michielvha/gitversion-tag-action` directly for versioning.
 
@@ -42,17 +42,11 @@ keyring. The action removes that keyring even when GoReleaser fails. Configure
 checksum signing in the caller's GoReleaser configuration. No separate GPG action
 is required.
 
-## Binary caching
+## Go caching
 
-Exact stable versions use a cache key containing the operating system,
-architecture, and requested version. The existing upstream GoReleaser action
-installs and verifies the binary only on a cache miss. This action then runs that
-binary directly. Version ranges and prerelease channels remain supported, but
-install fresh instead of caching a moving version.
-
-The binary is saved before key import or release execution, so a later failure
-does not discard the installation. The `cache-hit` output is `true` when the
-binary was restored. Go's module and build cache remains managed by setup-go.
+Setup-go manages Go's module and build caches. It does not run CI checks or cache
+the GoReleaser executable. The upstream GoReleaser action downloads the requested
+tool normally. There is no custom binary cache, staging, or CLI argument parser.
 Renovate tracks both tool-version defaults.
 
 ## Migration from v1
@@ -65,8 +59,8 @@ This is an opt-in major change, not an update to the existing v1 contract.
 - Remove the unused `gitversion-config-path` input. Configure the separate
   GitVersion action instead.
 - Advisory lint moves to the CI action.
-- Binary caching uses the actual installed executable instead of the old unused
-  `~/.goreleaser` directory.
+- The old unused `~/.goreleaser` binary cache is removed. Go module/build caching
+  remains enabled through setup-go.
 - GPG import remains in our action, uses an isolated keyring, and reports exactly
   one primary fingerprint. Empty, public-only, and ambiguous multi-key inputs fail.
 
@@ -77,16 +71,16 @@ and inspect partial releases before retrying. Never move the source tag.
 
 ## Tests
 
-Run `bun test` and `shellcheck scripts/*.sh`.
+Run `go test ./...` and `shellcheck scripts/*.sh`. The test harness and ephemeral
+key generator use Go's standard library; Bun is not required.
 
 - Signing tests generate disposable keys, import signing subkeys, sign and verify
   checksums, detect tampering, reject invalid inputs, and check keyring isolation
   and cleanup.
-- Execution tests cover cold/warm binary staging, damaged caches, quoted
-  arguments, command failure, and invoking the CLI once without evaluating shell
-  syntax. They do not freeze the action's step order or input list.
-- GitHub CI installs the real pinned GoReleaser, checks failure on an invalid
-  signing key, then restores the cache and builds a signed snapshot. It verifies
+- Installation and argument handling belong to the upstream GoReleaser action,
+  not a duplicate implementation in this action.
+- GitHub CI checks failure on an invalid signing key, then calls the upstream
+  action to build a signed snapshot with the real pinned GoReleaser. It verifies
   the checksum signature with the public key and checks private-key cleanup.
 
 Snapshot publication is disabled. These tests do not publish GitHub Releases or
