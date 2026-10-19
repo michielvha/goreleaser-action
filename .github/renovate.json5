@@ -2,11 +2,11 @@
   // Renovate (Mend-hosted app) config for goreleaser-action.
   //
   // This action is consumed by nearly every one of my Go app repos, so its own
-  // supply chain is critical: all four `uses:` steps in action.yml (setup-go,
-  // golangci-lint-action, cache, goreleaser-action) are SHA-pinned (`@<digest> # vX.Y.Z`)
+  // supply chain is critical: external `uses:` steps in action.yml (setup-go,
+  // cache restore/save, goreleaser-action) are SHA-pinned (`@<digest> # vX.Y.Z`)
   // rather than tracking mutable major tags. Renovate maintains those digests here
   // (`pinDigests`) and keeps the human-readable tag as a trailing comment. It also
-  // tracks the default Go toolchain via the `# renovate:` comment on `go-version`.
+  // tracks the default Go and GoReleaser versions via their `# renovate:` comments.
   // Nothing is auto-merged: every bump is a reviewable PR, and everything detected
   // (incl. rate-limited / major updates) surfaces on the Dependency Dashboard.
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
