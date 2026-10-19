@@ -1,3 +1,5 @@
+<!-- TODO: Verify config defaults/token requirements and revisit Homebrew/GHCR publication: https://github.com/michielvha/goreleaser-action/issues/12 -->
+
 # Go Release action
 
 Build, sign, and publish Go artifacts with GoReleaser. This branch prepares the
