@@ -44,6 +44,10 @@ keyring. The action removes that keyring even when GoReleaser fails. Configure
 checksum signing in the caller's GoReleaser configuration. No separate GPG action
 is required.
 
+Tag-triggered runs pass the event's exact tag to GoReleaser, even when another
+tag points at the same commit. Non-tag runs preserve an explicitly supplied
+`GORELEASER_CURRENT_TAG`, or leave tag discovery to GoReleaser.
+
 ## Go caching
 
 Setup-go manages Go's module and build caches. It does not run CI checks or cache
@@ -73,17 +77,23 @@ and inspect partial releases before retrying. Never move the source tag.
 
 ## Tests
 
-Run `go test ./...` and `shellcheck scripts/*.sh`. The test harness and ephemeral
-key generator use Go's standard library; Bun is not required.
+Run `go test -count=1 ./...` and `shellcheck scripts/*.sh`. Fresh test execution is
+required because Go's result cache does not track changes to Bash subprocesses.
+Go module/compiler caching stays enabled. The signing tests and ephemeral-key
+generator use the standard library and GnuPG; targeted manifest contracts use
+`go.yaml.in/yaml/v3`. Bun is not required.
 
 - Signing tests generate disposable keys, import signing subkeys, sign and verify
   checksums, detect tampering, reject invalid inputs, and check keyring isolation
   and cleanup.
 - Installation and argument handling belong to the upstream GoReleaser action,
   not a duplicate implementation in this action.
+- Regression contracts protect the event-tag binding and fresh behavior-test
+  execution, without freezing unrelated inputs or step order.
 - GitHub CI checks failure on an invalid signing key, then calls the upstream
   action to build a signed snapshot with the real pinned GoReleaser. It verifies
-  the checksum signature with the public key and checks private-key cleanup.
+  the selected tag when stable and prerelease tags share one commit, the checksum
+  signature with the public key, and private-key cleanup.
 
 Snapshot publication is disabled. These tests do not publish GitHub Releases or
 prove that production publication credentials are configured.

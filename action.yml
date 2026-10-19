@@ -46,6 +46,7 @@ runs:
         args: ${{ inputs.goreleaser-args }}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        GORELEASER_CURRENT_TAG: ${{ github.ref_type == 'tag' && github.ref_name || env.GORELEASER_CURRENT_TAG }}
         GNUPGHOME: ${{ steps.gpg.outputs.gnupghome }}
         GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
         GPG_TTY: /dev/null

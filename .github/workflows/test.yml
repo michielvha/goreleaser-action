@@ -18,9 +18,8 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: go.mod
       - run: shellcheck scripts/*.sh
-      - run: go test ./...
+      - run: go test -count=1 ./...
 
   snapshot:
     needs: behavior
@@ -34,7 +33,6 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: go.mod
       - name: An invalid signing key must fail
         id: invalid-key
         continue-on-error: true
@@ -51,9 +49,15 @@ jobs:
       - name: Generate an ephemeral signing key
         id: key
         run: go run ./tests/create-signing-fixture
+      - name: Create two local regression tags on the same commit (never pushed)
+        run: |
+          git tag v999.0.0
+          git tag v999.0.0-review.1
       - name: Build and sign a snapshot
         id: snapshot
         uses: ./
+        env:
+          GORELEASER_CURRENT_TAG: v999.0.0
         with:
           go-version: '1.27.2'
           github-token: ${{ github.token }}
@@ -61,6 +65,7 @@ jobs:
           goreleaser-args: release --snapshot --clean --skip=publish --config tests/fixture/.goreleaser.yml
       - name: Verify the checksum signature and private-key cleanup
         run: |
+          jq -e '.tag == "v999.0.0"' dist/metadata.json
           gpg --batch --dearmor --output "$RUNNER_TEMP/release-fixture-public.gpg" "$RUNNER_TEMP/release-fixture-public.asc"
           gpgv --keyring "$RUNNER_TEMP/release-fixture-public.gpg" dist/checksums.txt.sig dist/checksums.txt
           remaining=$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'goreleaser-gpg.*' -print)
