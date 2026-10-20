@@ -2,9 +2,9 @@
 
 # Go Release action
 
-Build, sign, and publish Go artifacts with GoReleaser. This branch prepares the
-release-only next major. Existing `main` and released consumer refs are not
-changed by this branch.
+Build, sign, and publish Go artifacts with GoReleaser. The default branch contains
+the release-only interface. Legacy consumers retain the v1 contract through
+their immutable pins; adopting this interface is an explicit migration.
 
 The action provisions Go, imports the signing key with native GnuPG, and calls
 the upstream GoReleaser action to install and run GoReleaser. It does not lint, test, decide
@@ -33,6 +33,7 @@ checks before this action.
 | Input | Required | Default |
 | --- | --- | --- |
 | `go-version` | No | See [action.yml](action.yml) |
+| `go-cache` | No | `true` |
 | `github-token` | Yes | None |
 | `pgp-private-key` | Yes | None |
 | `goreleaser-version` | No | Pinned stable version in [action.yml](action.yml) |
@@ -54,6 +55,12 @@ Setup-go manages Go's module and build caches. It does not run CI checks or cach
 the GoReleaser executable. The upstream GoReleaser action downloads the requested
 tool normally. There is no custom binary cache, staging, or CLI argument parser.
 Renovate tracks both tool-version defaults.
+
+When an earlier Go CI step already restored these caches in the same job, pass
+`go-cache: 'false'` to this action. GoReleaser still uses the populated Go
+module/build caches; this only avoids restoring and saving them a second time.
+Restoring over read-only module files can produce tar extraction errors.
+Standalone callers keep setup-go caching enabled by default.
 
 ## Migration from v1
 

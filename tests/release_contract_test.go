@@ -32,6 +32,33 @@ func TestReleaseBindsTriggeringTag(t *testing.T) {
 	t.Fatal("the action has no upstream GoReleaser step")
 }
 
+func TestGoCacheCanBeOwnedByCaller(t *testing.T) {
+	var action struct {
+		Inputs map[string]struct {
+			Default string `yaml:"default"`
+		} `yaml:"inputs"`
+		Runs struct {
+			Steps []struct {
+				Uses string            `yaml:"uses"`
+				With map[string]string `yaml:"with"`
+			} `yaml:"steps"`
+		} `yaml:"runs"`
+	}
+	decodeYAML(t, "../action.yml", &action)
+	if action.Inputs["go-cache"].Default != "true" {
+		t.Error("standalone callers must retain Go module/build caching by default")
+	}
+	for _, step := range action.Runs.Steps {
+		if strings.HasPrefix(step.Uses, "actions/setup-go@") {
+			if step.With["cache"] != "${{ inputs.go-cache }}" {
+				t.Error("callers must be able to disable a duplicate cache restore")
+			}
+			return
+		}
+	}
+	t.Fatal("the action has no setup-go step")
+}
+
 func TestBehaviorTestsRunFresh(t *testing.T) {
 	var workflow struct {
 		Jobs map[string]struct {
