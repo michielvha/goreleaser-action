@@ -1,0 +1,72 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  behavior:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: shellcheck scripts/*.sh
+      - run: go test -count=1 ./...
+
+  snapshot:
+    needs: behavior
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: An invalid signing key must fail
+        id: invalid-key
+        continue-on-error: true
+        uses: ./
+        with:
+          go-version: '1.27.2'
+          github-token: ${{ github.token }}
+          pgp-private-key: not a private key
+          goreleaser-args: check --config tests/fixture/.goreleaser.yml
+      - name: Check that the action rejected the invalid key
+        env:
+          OUTCOME: ${{ steps.invalid-key.outcome }}
+        run: test "$OUTCOME" = failure
+      - name: Generate an ephemeral signing key
+        id: key
+        run: go run ./tests/create-signing-fixture
+      - name: Create two local regression tags on the same commit (never pushed)
+        run: |
+          git tag v999.0.0
+          git tag v999.0.0-review.1
+      - name: Build and sign a snapshot
+        id: snapshot
+        uses: ./
+        env:
+          GORELEASER_CURRENT_TAG: v999.0.0
+        with:
+          go-version: '1.27.2'
+          github-token: ${{ github.token }}
+          pgp-private-key: ${{ steps.key.outputs.private-key }}
+          goreleaser-args: release --snapshot --clean --skip=publish --config tests/fixture/.goreleaser.yml
+      - name: Verify the checksum signature and private-key cleanup
+        run: |
+          jq -e '.tag == "v999.0.0"' dist/metadata.json
+          gpg --batch --dearmor --output "$RUNNER_TEMP/release-fixture-public.gpg" "$RUNNER_TEMP/release-fixture-public.asc"
+          gpgv --keyring "$RUNNER_TEMP/release-fixture-public.gpg" dist/checksums.txt.sig dist/checksums.txt
+          remaining=$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'goreleaser-gpg.*' -print)
+          test -z "$remaining"

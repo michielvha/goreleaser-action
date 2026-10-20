@@ -1,222 +1,99 @@
-<!-- TODO: Properly test statements like which config files are required and which will default, I think golanci is needed and gorelease isn't 
-test the whole setup better so we can give better explenations in this readme when it comes to the token required, optionally pushing to brew tap etc etc.
+<!-- TODO: Verify config defaults/token requirements and revisit Homebrew/GHCR publication: https://github.com/michielvha/goreleaser-action/issues/12 -->
 
-Create a second version that also uses goreleaser for deploying the container to ghcr, get inspiration here :
+# Go Release action
 
-project_name: crossplane-docs
+Build, sign, and publish Go artifacts with GoReleaser. This branch prepares the
+release-only next major. Existing `main` and released consumer refs are not
+changed by this branch.
 
-builds:
-  - id: crossplane-docs
-    binary: crossplane-docs
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
-    ignore:
-      - goos: windows
-        goarch: arm64
-
-dockers:
-  - image_templates: ["ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-amd64"]
-    dockerfile: Dockerfile
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/amd64
-      - --label=org.opencontainers.image.title={{ .ProjectName }}
-      - --label=org.opencontainers.image.description={{ .ProjectName }}
-      - --label=org.opencontainers.image.url=https://github.com/kavinraja-g/{{ .ProjectName }}
-      - --label=org.opencontainers.image.source=https://github.com/kavinraja-g/{{ .ProjectName }}
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-      - --label=org.opencontainers.image.licenses=Apache
-  - image_templates: ["ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
-    goarch: arm64
-    dockerfile: Dockerfile
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/arm64/v8
-      - --label=org.opencontainers.image.title={{ .ProjectName }}
-      - --label=org.opencontainers.image.description={{ .ProjectName }}
-      - --label=org.opencontainers.image.url=https://github.com/kavinraja-g/{{ .ProjectName }}
-      - --label=org.opencontainers.image.source=https://github.com/kavinraja-g/{{ .ProjectName }}
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-      - --label=org.opencontainers.image.licenses=Apache
-
-docker_manifests:
-  - name_template: ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}
-    image_templates:
-      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-amd64
-      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-arm64v8
-  - name_template: ghcr.io/kavinraja-g/{{ .ProjectName }}:latest
-    image_templates:
-      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-amd64
-      - ghcr.io/kavinraja-g/{{ .ProjectName }}:{{ .Version }}-arm64v8
-
-archives:
-  - builds:
-      - crossplane-docs
-    name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
-    wrap_in_directory: false
-    format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
-    files:
-      - LICENSE
-      - README.md
-
-brews:
-  - name: crossplane-docs
-    homepage: "https://github.com/Kavinraja-G/crossplane-docs/"
-    description: "XDocs generator for Crossplane"
-    repository:
-      owner: Kavinraja-G
-      name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-
--->
-
-# Go Build and Release Action
-
-This GitHub Action builds and releases a Go application using GitVersion for versioning and GoReleaser for building and publishing releases.
-
-## Features
-
-- Go code linting with golangci-lint
-- Binary signing with PGP
-- Multi-platform binary building and releasing with GoReleaser
-
-## Usage
-
-> [!IMPORTANT]
-> You must tag the repository with an initial tag (v0.0.0) when using our gitversion file, otherwise the pipeline will fail.
-
-Add this to your workflow file:
+The action provisions Go, imports the signing key with native GnuPG, and calls
+the upstream GoReleaser action to install and run GoReleaser. It does not lint, test, decide
+versions, or create source tags. Use `michielvha/go-ci-action` for CI and call
+`michielvha/gitversion-tag-action` directly for versioning.
 
 ```yaml
-jobs:
-  build-and-release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch all history to use GitVersion
-          persist-credentials: true
-      - name: Tag with GitVersion
-        id: gitversion
-        uses: michielvha/gitversion-tag-action@v4
-        with:
-          configFilePath: gitversion.yml
-      - name: Build and Release
-        uses: ./.github/actions/build-release-action
-        with:
-          github-token: ${{ github.token }}
-          pgp-private-key: ${{ secrets.PGP_PRIVATE_KEY }}
-          # Optional overrides:
-          # go-version: '1.24.3'
-          # gitversion-config-path: 'gitversion.yml'
-          # goreleaser-version: '~> v2'
-          # goreleaser-args: 'release --clean'
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    with:
+      fetch-depth: 0
+      persist-credentials: false
+  - uses: michielvha/goreleaser-action@FULL_COMMIT_SHA
+    with:
+      go-version: '1.27.2'
+      github-token: ${{ github.token }}
+      pgp-private-key: ${{ secrets.PGP_PRIVATE_KEY }}
 ```
+
+Replace the placeholder with the verified next-major commit. The job requires
+`contents: write`. The caller checks out the exact tag's source and runs its CI
+checks before this action.
 
 ## Inputs
 
-| Name                     | Description                           | Required | Default           |
-| ------------------------ | ------------------------------------- | -------- | ----------------- |
-| `github-token`           | GitHub token for release              | Yes      | N/A               |
-| `pgp-private-key`        | PGP private key for signing           | Yes      | N/A               |
-| `go-version`             | The Go version to use                 | No       | `1.23.3`          |
-| `gitversion-config-path` | Path to GitVersion configuration file | No       | `gitversion.yml`  |
-| `goreleaser-version`     | GoReleaser version to use             | No       | `~> v2`           |
-| `goreleaser-args`        | Arguments to pass to GoReleaser       | No       | `release --clean` |
-| `golangci-lint-config`   | Path to golangci-lint config file (passed as --config argument)     | No       | `.golangci.yml`   |
+| Input | Required | Default |
+| --- | --- | --- |
+| `go-version` | No | See [action.yml](action.yml) |
+| `github-token` | Yes | None |
+| `pgp-private-key` | Yes | None |
+| `goreleaser-version` | No | Pinned stable version in [action.yml](action.yml) |
+| `goreleaser-args` | No | `release --clean` |
 
-## Requirements
+The imported key's primary fingerprint is supplied as `GPG_FINGERPRINT`; signing
+subkeys are supported. Import uses a private temporary keyring, not the caller's
+keyring. The action removes that keyring even when GoReleaser fails. Configure
+checksum signing in the caller's GoReleaser configuration. No separate GPG action
+is required.
 
-### Config files
+Tag-triggered runs pass the event's exact tag to GoReleaser, even when another
+tag points at the same commit. Non-tag runs preserve an explicitly supplied
+`GORELEASER_CURRENT_TAG`, or leave tag discovery to GoReleaser.
 
-- Your project must have a valid Golang configuration file
-- PGP key for signing releases must be set as a repository secret
-- Optional: a valid GoReleaser configuration file (.goreleaser.yml or .goreleaser.yaml) if omitted, gorelease will run using it's default configuration.
-- Optional: A `.golangci.yml` file for custom linting configuration (if not provided, golangci-lint will use its default settings)
-### 🧩 Secrets
+## Go caching
 
-| Name                      | Purpose                             |
-| ------------------------- | ----------------------------------- |
-| `PGP_PRIVATE_KEY`         | Used to sign the checksums          |
-| `${{ github.token }}` or `$(PROJECT)_GITHUB_TOKEN` | Default for normal release with `contents: write` or Custom token with extra permissions provided via secrets if needed|
+Setup-go manages Go's module and build caches. It does not run CI checks or cache
+the GoReleaser executable. The upstream GoReleaser action downloads the requested
+tool normally. There is no custom binary cache, staging, or CLI argument parser.
+Renovate tracks both tool-version defaults.
 
-> [!IMPORTANT]
-> You need to manually create a token  with `repo` and `workflow` permissions and generate a PGP Private Key, afterwards add these values to repo secrets
+## Migration from v1
 
+This is an opt-in major change, not an update to the existing v1 contract.
 
- <!-- |                     | `GPG_FINGERPRINT`                   | Exported at runtime for signing | -->
+- Move formatting, module checks, vet, tests, build checks, and lint to
+  `michielvha/go-ci-action`.
+- Remove the `golangci-lint-config` input from the release action.
+- Remove the unused `gitversion-config-path` input. Configure the separate
+  GitVersion action instead.
+- Advisory lint moves to the CI action.
+- The old unused `~/.goreleaser` binary cache is removed. Go module/build caching
+  remains enabled through setup-go.
+- GPG import remains in our action, uses an isolated keyring, and reports exactly
+  one primary fingerprint. Empty, public-only, and ambiguous multi-key inputs fail.
 
-## Generate PGP Private Key
+GoReleaser owns draft creation, artifact upload, and final publication. Configure
+prereleases and replacement policy in its configuration rather than adding
+another release engine in the workflow. Keep existing-asset replacement disabled
+and inspect partial releases before retrying. Never move the source tag.
 
-You can run the following on any unix host to quickly create a key
+## Tests
 
-1. Create config file
-```sh
-cat > gen-key.conf <<EOF
-%no-protection
-Key-Type: RSA
-Key-Length: 2048
-Name-Real: Test User
-Name-Email: test@example.com
-Expire-Date: 0
-%commit
-EOF
-```
-2. Generate the key
-```sh
-gpg --batch --gen-key gen-key.conf
-```
-3. List the key fingerprint (optional)
-```sh
-gpg --list-secret-keys --keyid-format=long
-```
-4. Export the key and manually copy the value to repo secret.
-```sh
-gpg --armor --export-secret-keys test@example.com
-```
-5. Clean up
-```sh
-rm gen-key.conf
-```
+Run `go test -count=1 ./...` and `shellcheck scripts/*.sh`. Fresh test execution is
+required because Go's result cache does not track changes to Bash subprocesses.
+Go module/compiler caching stays enabled. The signing tests and ephemeral-key
+generator use the standard library and GnuPG; targeted manifest contracts use
+`go.yaml.in/yaml/v3`. Bun is not required.
 
-## 🧪 Action Overview
+- Signing tests generate disposable keys, import signing subkeys, sign and verify
+  checksums, detect tampering, reject invalid inputs, and check keyring isolation
+  and cleanup.
+- Installation and argument handling belong to the upstream GoReleaser action,
+  not a duplicate implementation in this action.
+- Regression contracts protect the event-tag binding and fresh behavior-test
+  execution, without freezing unrelated inputs or step order.
+- GitHub CI checks failure on an invalid signing key, then calls the upstream
+  action to build a signed snapshot with the real pinned GoReleaser. It verifies
+  the selected tag when stable and prerelease tags share one commit, the checksum
+  signature with the public key, and private-key cleanup.
 
-This custom GitHub Action(`binary-release.yaml`) automates the build and release process of a Go Binary. It is triggered by:
-
-### 👣 Workflow Steps
-
-1. **Setup Go**
-   - Installs Go with version of choice, defaults to `1.24.3` using `actions/setup-go@v5`.
-
-2. **Linting**
-   - Runs `golangci-lint` (`v1.64`) to check for common Go issues and allows to set a custom config file path.
-
-3. **Cache GoReleaser**
-   - Caches GoReleaser binary to speed up subsequent runs.
-
-4. **PGP Key Import & Fingerprint Extraction**
-   - Imports the GPG private key from a GitHub secret.
-   - Extracts the fingerprint and sets it as an env variable for signing.
-
-5. **Release with GoReleaser**
-   - Runs `goreleaser/goreleaser-action@v6` to:
-     - Build binaries across multiple OS/architecture targets.
-     - Package, checksum, sign, and publish the release.
-
-## 📌 Future Improvements
-
-- ✅ **Add Unit Tests** using `gotestsum` and coverage report.
-- ✅ **Add CodeQL** for automated security analysis.
+Snapshot publication is disabled. These tests do not publish GitHub Releases or
+prove that production publication credentials are configured.

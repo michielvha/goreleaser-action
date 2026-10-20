@@ -1,15 +1,11 @@
-name: 'Go Build and Release'
-description: 'Build and release a Go project with GoReleaser'
+name: 'Go Release'
+description: 'Build, sign, and publish Go artifacts with GoReleaser'
 inputs:
   go-version:
     description: 'The Go version to use'
     required: false
     # renovate: datasource=golang-version depName=go
     default: '1.25.11'
-  gitversion-config-path:
-    description: 'Path to GitVersion configuration file'
-    required: false
-    default: 'gitversion.yml'
   github-token:
     description: 'GitHub token for release'
     required: true
@@ -19,65 +15,30 @@ inputs:
   goreleaser-version:
     description: 'GoReleaser version to use'
     required: false
-    default: '~> v2'
+    # renovate: datasource=github-releases depName=goreleaser/goreleaser
+    default: 'v2.18.3'
   goreleaser-args:
     description: 'Arguments to pass to GoReleaser'
     required: false
     default: 'release --clean'
-  golangci-lint-config:
-    description: 'Path to golangci-lint configuration file'
-    required: false
-    default: '.golangci.yml'
 
 runs:
   using: "composite"
   steps:
-    # 1: Set up Go
     - name: Set up Go
-      # SHA-pinned for supply-chain safety; Renovate maintains the digest + tag comment.
       uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
       with:
         go-version: ${{ inputs.go-version }}
+        cache: true
 
-    # 2: Install Linter (golangci-lint)
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-      continue-on-error: true
-      with:
-        args: --config=${{ inputs.golangci-lint-config }}
-
-    # 3: Cache GoReleaser installation
-    - name: Cache GoReleaser
-      id: goreleaser-cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.goreleaser
-        key: goreleaser-${{ runner.os }}-latest
-        restore-keys: goreleaser-${{ runner.os }}-
-
-    # 4: Import PGP Key for signing
-    - name: Import PGP Private Key
+    - name: Import signing key
+      id: gpg
       shell: bash
-      run: |
-        mkdir -p ~/.gnupg
-        chmod 700 ~/.gnupg
-        echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-        gpgconf --reload gpg-agent
-        echo "${{ inputs.pgp-private-key }}" | gpg --batch --import
-        gpg --list-secret-keys --keyid-format=long
       env:
-        GPG_TTY: /dev/null
+        ACTION_PATH: ${{ github.action_path }}
+        PGP_PRIVATE_KEY: ${{ inputs.pgp-private-key }}
+      run: bash "$ACTION_PATH/scripts/signing-key.sh" import
 
-    # 5: Extract PGP Fingerprint
-    - name: Extract and Set GPG Fingerprint
-      shell: bash
-      run: |
-        echo "🔹 Extracting GPG Fingerprint..."
-        export GPG_FINGERPRINT=$(gpg --list-secret-keys --keyid-format=long | grep sec | awk '{print $2}' | awk -F'/' '{print $2}')
-        echo "GPG_FINGERPRINT=${GPG_FINGERPRINT}" >> $GITHUB_ENV
-        echo "Using fingerprint: $GPG_FINGERPRINT"
-
-    # 6: Run GoReleaser to build and release binaries
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
       with:
@@ -85,7 +46,18 @@ runs:
         args: ${{ inputs.goreleaser-args }}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-        GPG_FINGERPRINT: ${{ env.GPG_FINGERPRINT }}
+        GORELEASER_CURRENT_TAG: ${{ github.ref_type == 'tag' && github.ref_name || env.GORELEASER_CURRENT_TAG }}
+        GNUPGHOME: ${{ steps.gpg.outputs.gnupghome }}
+        GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
+        GPG_TTY: /dev/null
+
+    - name: Remove imported signing key
+      if: ${{ always() && steps.gpg.outputs.gnupghome != '' }}
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        GNUPGHOME: ${{ steps.gpg.outputs.gnupghome }}
+      run: bash "$ACTION_PATH/scripts/signing-key.sh" cleanup
 
 branding:
   icon: 'package'
