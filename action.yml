@@ -20,7 +20,7 @@ inputs:
     description: 'GoReleaser version to use'
     required: false
     # renovate: datasource=github-releases depName=goreleaser/goreleaser
-    default: 'v2.18.3'
+    default: 'v2.19.0'
   goreleaser-args:
     description: 'Arguments to pass to GoReleaser'
     required: false
